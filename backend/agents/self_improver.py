@@ -1,4 +1,6 @@
 """SelfImprover agent - enhances system safety, intelligence, and self-improvement."""
+import asyncio
+import time
 from typing import Dict, Any
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -53,6 +55,8 @@ class SelfImproverAgent:
         self.tools = BASE_TOOLS
         self.agent_executor = None
         self._initialize_agent()
+        self._last_run_time = 0
+        self._throttle_seconds = 600  # 10 minutes
     
     def _initialize_agent(self):
         """Initialize the LangChain agent with tools."""
@@ -71,7 +75,22 @@ class SelfImproverAgent:
             max_iterations=25,
             handle_parsing_errors=True
         )
-    
+
+    async def _docs_changed(self) -> bool:
+        """Check if documentation files have changed using git status."""
+        import subprocess
+        try:
+            result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+            changed_files = result.stdout.splitlines()
+            for line in changed_files:
+                # Check if any doc files changed (e.g., .md, .rst, .txt)
+                if line[3:].endswith(('.md', '.rst', '.txt')):
+                    return True
+            return False
+        except Exception:
+            # If git not available or error, assume changed to be safe
+            return True
+
     async def improve(self, task: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Perform a self-improvement task.
         
@@ -82,6 +101,17 @@ class SelfImproverAgent:
         Returns:
             Result of the improvement operation
         """
+        # Throttle runs to max once per 10 minutes
+        now = time.time()
+        if now - self._last_run_time < self._throttle_seconds:
+            return {"output": "Skipped self-improvement due to throttle."}
+
+        # Check if docs changed
+        if not await self._docs_changed():
+            return {"output": "Skipped self-improvement because no docs changed."}
+
+        self._last_run_time = now
+
         # Get current state
         state = await state_manager.get_state()
         
@@ -107,30 +137,28 @@ class SelfImproverAgent:
             status="running"
         )
         await state_manager.add_build_step(step)
-        
-        try:
-            # Run agent
-            result = await self.agent_executor.ainvoke({
-                "input": task,
-                **full_context
-            })
-            
-            # Update step
-            await state_manager.update_build_step(
-                step_id,
-                status="completed",
-                result=str(result.get("output", ""))
-            )
-            
-            return result
-        
-        except Exception as e:
-            await state_manager.update_build_step(
-                step_id,
-                status="failed",
-                error=str(e)
-            )
-            raise
+
+        # Run agent asynchronously without blocking
+        async def run_agent():
+            try:
+                result = await self.agent_executor.ainvoke({
+                    "input": task,
+                    **full_context
+                })
+                await state_manager.update_build_step(
+                    step_id,
+                    status="completed",
+                    result=str(result.get("output", ""))
+                )
+            except Exception as e:
+                await state_manager.update_build_step(
+                    step_id,
+                    status="failed",
+                    error=str(e)
+                )
+
+        asyncio.create_task(run_agent())
+        return {"output": "Self-improvement task started asynchronously."}
 
 
 # Global self-improver instance

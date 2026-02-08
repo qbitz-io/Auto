@@ -6,22 +6,22 @@ class BuildLoop:
         self.running = False
         self.iteration = 0
 
-    async def run(self):
+    async def run(self, depth=0):
         self.running = True
         while self.running:
             self.iteration += 1
             print(f"Build iteration {self.iteration} started.")
 
             # 1. Plan next feature or improvement
-            plan_result = await orchestrator.run("Plan next feature or improvement to build and test.")
+            plan_result = await orchestrator.run("Plan next feature or improvement to build and test.", depth=depth)
             feature_description = plan_result.get("output", "")
 
             # 2. Build the feature
-            build_result = await orchestrator.run(f"Build the following feature: {feature_description}")
+            build_result = await orchestrator.run(f"Build the following feature: {feature_description}", depth=depth)
             code = build_result.get("output", "")
 
             # 3. Test the feature
-            test_result = await orchestrator.run(f"Test the feature: {feature_description}")
+            test_result = await orchestrator.run(f"Test the feature: {feature_description}", depth=depth)
             test_results = {"all_passed": True, "performance_ok": True}  # Simplified
 
             # 4. Score the code
@@ -30,7 +30,7 @@ class BuildLoop:
 
             # 5. If score < 10, refine
             while score < 10 and self.running:
-                refine_result = await orchestrator.run(f"Refine the feature to improve score from {score} to 10.")
+                refine_result = await orchestrator.run(f"Refine the feature to improve score from {score} to 10.", depth=depth)
                 code = refine_result.get("output", "")
                 test_results = {"all_passed": True, "performance_ok": True}  # Simplified
                 score = scoring_agent.score_code(code, test_results)

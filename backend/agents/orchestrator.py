@@ -65,7 +65,9 @@ class OrchestratorAgent:
         self.research_agent = ResearchAgent()
         self.planner_agent = planner
         self._initialize_agent()
-    
+        self._task_cache_limit = 100
+        self._task_cache = []  # LRU cache of task hashes
+
     def _initialize_agent(self):
         """Initialize the LangChain agent with tools."""
         prompt = ChatPromptTemplate.from_messages([
@@ -130,23 +132,38 @@ class OrchestratorAgent:
             return True
         return False
 
-    async def run(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def run(self, task: str, context: Optional[Dict[str, Any]] = None, depth: int = 0) -> Dict[str, Any]:
         """Run the orchestrator with a specific task.
         
         Args:
             task: The task description
             context: Additional context for the agent
+            depth: Recursion depth counter to prevent infinite recursion
         
         Returns:
             Agent execution result
         """
+        # Limit recursion depth to 2
+        if depth > 2:
+            return {"output": "Max recursion depth reached, stopping further decomposition."}
+
         # Hash the task prompt
         task_hash = hashlib.sha256(task.encode('utf-8')).hexdigest()
 
-        # Check cache for recent result
-        cached_result = await state_manager.get_cached_result(task_hash)
-        if cached_result is not None:
-            return {"output": cached_result, "cached": True}
+        # Check LRU cache to prevent unbounded memory growth
+        if task_hash in self._task_cache:
+            # Move to end to mark as recently used
+            self._task_cache.remove(task_hash)
+            self._task_cache.append(task_hash)
+            cached_result = await state_manager.get_cached_result(task_hash)
+            if cached_result is not None:
+                return {"output": cached_result, "cached": True}
+        else:
+            # Add to cache
+            self._task_cache.append(task_hash)
+            if len(self._task_cache) > self._task_cache_limit:
+                # Evict least recently used
+                evicted = self._task_cache.pop(0)
 
         # Get current state
         state = await state_manager.get_state()
@@ -182,8 +199,8 @@ class OrchestratorAgent:
 
             aggregated_results = []
             for phase in phases:
-                # Execute each phase sequentially
-                phase_result = await self.run(phase, context=full_context)
+                # Execute each phase sequentially, incrementing depth
+                phase_result = await self.run(phase, context=full_context, depth=depth+1)
                 aggregated_results.append({"phase": phase, "result": phase_result})
 
             # Aggregate results into a summary
@@ -223,8 +240,9 @@ class OrchestratorAgent:
             # Cache the result
             await state_manager.add_cached_result(task_hash, output_str)
             
-            # TODO: Re-enable as non-blocking background task instead of blocking post-task hook
-            # await self_improver.improve("Sync documentation with new capabilities and improvements.")
+            # Run self_improver asynchronously after task completion
+            import asyncio
+            asyncio.create_task(self_improver.improve("Sync documentation with new capabilities and improvements."))
             
             return result
         

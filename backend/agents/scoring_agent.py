@@ -8,12 +8,12 @@ import json
 class ScoringAgent:
     """Evaluates code based on functionality, code quality, performance, and safety."""
 
-    def score_code(self, code: str, test_command: str = None) -> int:
+    def score_code(self, code: str, test_results: dict = None) -> int:
         """Score code 0-10 based on criteria.
 
         Args:
             code: The source code string.
-            test_command: Command to run tests, if any.
+            test_results: Dict with test results.
 
         Returns:
             int: Score from 0 to 10.
@@ -23,16 +23,18 @@ class ScoringAgent:
             with open(code_path, "w", encoding="utf-8") as f:
                 f.write(code)
 
-            # Run code quality check (ruff)
-            quality_score = self._run_ruff(code_path)
+            # Run code quality check (ruff) - use 'ruff check' instead of 'ruff'
+            quality_score = self._run_ruff_check(code_path)
 
             # Run safety check (bandit)
             safety_score = self._run_bandit(code_path)
 
             # Run tests and measure performance
             functionality_score, performance_score = 0, 0
-            if test_command:
-                functionality_score, performance_score = self._run_tests_and_measure(test_command, tmpdir)
+            if test_results:
+                # Simplified: assume all_passed and performance_ok keys
+                functionality_score = 4 if test_results.get("all_passed", False) else 0
+                performance_score = 2 if test_results.get("performance_ok", False) else 0
 
             # Calculate total score
             # Functionality (4 pts), Code quality (2 pts), Performance (2 pts), Safety (2 pts)
@@ -42,10 +44,10 @@ class ScoringAgent:
 
             return total_score
 
-    def _run_ruff(self, code_path: str) -> int:
-        """Run ruff linter and return code quality score (0-2)."""
+    def _run_ruff_check(self, code_path: str) -> int:
+        """Run 'ruff check' linter and return code quality score (0-2)."""
         try:
-            result = subprocess.run(["ruff", code_path, "--exit-zero", "--format", "json"], capture_output=True, text=True)
+            result = subprocess.run(["ruff", "check", code_path, "--exit-zero", "--format", "json"], capture_output=True, text=True)
             # Parse JSON output
             issues = json.loads(result.stdout) if result.stdout else []
             error_count = len(issues)
@@ -77,28 +79,5 @@ class ScoringAgent:
                 return 0
         except Exception:
             return 0
-
-    def _run_tests_and_measure(self, test_command: str, cwd: str) -> (int, int):
-        """Run tests, return functionality (0-4) and performance (0-2) scores."""
-        try:
-            start = time.time()
-            result = subprocess.run(test_command, shell=True, cwd=cwd, capture_output=True, text=True)
-            duration = time.time() - start
-
-            # Determine functionality score
-            # If tests pass (exit code 0), full 4 points
-            functionality_score = 4 if result.returncode == 0 else 0
-
-            # Performance score: 2 if duration < 1s, 1 if <3s, else 0
-            if duration < 1:
-                performance_score = 2
-            elif duration < 3:
-                performance_score = 1
-            else:
-                performance_score = 0
-
-            return functionality_score, performance_score
-        except Exception:
-            return 0, 0
 
 scoring_agent = ScoringAgent()

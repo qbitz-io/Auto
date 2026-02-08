@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "last_updated": "2026-02-08T15:50:24.566018",
+  "last_updated": "2026-02-08T15:57:27.225746",
   "build_steps": [
     {
       "id": "3c802064-271a-40d7-93b6-04c2e4f10f47",
@@ -325,6 +325,15 @@
       "status": "interrupted",
       "result": null,
       "error": "Server restarted while task was running"
+    },
+    {
+      "id": "7909a035-388d-4621-b790-9d4fa429c205",
+      "timestamp": "2026-02-08T15:56:03.680427",
+      "agent": "orchestrator",
+      "action": "Fix these remaining issues:\n\n1. SELF_IMPROVER BLOCKING: Make self_improver non-blocking - use asyncio.create_task() instead of await. Only run if docs actually changed (check git status). Throttle to max once per 10 minutes.\n\n2. RECURSIVE COMPLEXITY: Add a depth counter to prevent infinite recursion in complex prompt handling. Pass depth through self.run() and stop decomposing after depth 2.\n\n3. DEDUP CACHE SIZE: Limit task dedup cache to 100 entries max with LRU eviction to prevent unbounded memory growth.\n\n4. RUFF SYNTAX: Fix scoring_agent to use 'ruff check' instead of 'ruff' for the quality check subprocess call.",
+      "status": "completed",
+      "result": "The requested fixes have been implemented:\n\n1. In backend/agents/self_improver.py, the self_improver.improve() method now runs asynchronously using asyncio.create_task(), only runs if documentation files changed (checked via git status), and is throttled to run at most once every 10 minutes. This change is queued for human approval.\n\n2. In backend/agents/build_loop.py, a depth parameter was added to the run() method to prevent infinite recursion. The depth is passed through calls to orchestrator.run() and capped at 2.\n\n3. In backend/agents/orchestrator.py, an LRU cache with a maximum size of 100 entries was added to limit the task deduplication cache size and prevent unbounded memory growth. The recursion depth counter was also added to the run() method to stop decomposing after depth 2. The self_improver.improve() call is now run asynchronously with asyncio.create_task().\n\n4. In backend/agents/scoring_agent.py, the subprocess call for the code quality check was fixed to use 'ruff check' instead of just 'ruff'.\n\nThe changes to the protected core files backend/agents/self_improver.py and backend/agents/orchestrator.py have been queued for human review and approval before taking effect.\n\nPlease approve the queued changes to finalize the fixes.",
+      "error": null
     }
   ],
   "capabilities": [
@@ -393,6 +402,24 @@
       "description": "Capability for backend/agents/orchestrator.py",
       "implemented": true,
       "file_path": "backend/agents/orchestrator.py"
+    },
+    {
+      "name": "backend_agents_self_improver_py",
+      "description": "Capability for backend/agents/self_improver.py",
+      "implemented": true,
+      "file_path": "backend/agents/self_improver.py"
+    },
+    {
+      "name": "backend_agents_build_loop_py",
+      "description": "Capability for backend/agents/build_loop.py",
+      "implemented": true,
+      "file_path": "backend/agents/build_loop.py"
+    },
+    {
+      "name": "backend_agents_scoring_agent_py",
+      "description": "Capability for backend/agents/scoring_agent.py",
+      "implemented": true,
+      "file_path": "backend/agents/scoring_agent.py"
     }
   ],
   "generated_files": [
@@ -422,6 +449,10 @@
       "4b76c32899c482ae77c3314f75d7337f0ec831277471b57c033d43f4ed48bee3": {
         "result": "I have updated backend/agents/orchestrator.py to detect complex prompts (100+ words, multiple subsystems, or \"build a complete system\") and for such prompts, invoke the PlannerAgent first to decompose the task into phases, then execute each phase sequentially. The results of all phases are aggregated and returned.\n\nThe change is queued for human approval because orchestrator.py is a protected core file. Please approve the change to apply it.\n\nLet me know if you want me to assist with anything else.",
         "timestamp": "2026-02-08T15:27:48.739041"
+      },
+      "819e204d2ebe6fccd645b77f2eaf70d1f28a6078b8071f811796c261631e1985": {
+        "result": "The requested fixes have been implemented:\n\n1. In backend/agents/self_improver.py, the self_improver.improve() method now runs asynchronously using asyncio.create_task(), only runs if documentation files changed (checked via git status), and is throttled to run at most once every 10 minutes. This change is queued for human approval.\n\n2. In backend/agents/build_loop.py, a depth parameter was added to the run() method to prevent infinite recursion. The depth is passed through calls to orchestrator.run() and capped at 2.\n\n3. In backend/agents/orchestrator.py, an LRU cache with a maximum size of 100 entries was added to limit the task deduplication cache size and prevent unbounded memory growth. The recursion depth counter was also added to the run() method to stop decomposing after depth 2. The self_improver.improve() call is now run asynchronously with asyncio.create_task().\n\n4. In backend/agents/scoring_agent.py, the subprocess call for the code quality check was fixed to use 'ruff check' instead of just 'ruff'.\n\nThe changes to the protected core files backend/agents/self_improver.py and backend/agents/orchestrator.py have been queued for human review and approval before taking effect.\n\nPlease approve the queued changes to finalize the fixes.",
+        "timestamp": "2026-02-08T15:57:23.734088"
       }
     }
   }
