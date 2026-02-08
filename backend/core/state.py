@@ -208,6 +208,34 @@ class StateManager:
         state = await self.get_state()
         return [cap for cap in state.capabilities if not cap.implemented]
 
+    async def get_cached_result(self, task_hash: str) -> Optional[str]:
+        """Check if a task result is cached (within last hour)."""
+        state = await self.get_state()
+        cache = state.metadata.get("task_cache", {})
+        entry = cache.get(task_hash)
+        if entry:
+            cached_at = datetime.fromisoformat(entry["timestamp"])
+            age_seconds = (datetime.now() - cached_at).total_seconds()
+            if age_seconds < 3600:  # 1 hour TTL
+                return entry["result"]
+            else:
+                # Expired — clean it up
+                del cache[task_hash]
+                state.metadata["task_cache"] = cache
+                await self.save()
+        return None
+
+    async def add_cached_result(self, task_hash: str, result: str) -> None:
+        """Cache a task result with timestamp."""
+        state = await self.get_state()
+        cache = state.metadata.get("task_cache", {})
+        cache[task_hash] = {
+            "result": result,
+            "timestamp": datetime.now().isoformat(),
+        }
+        state.metadata["task_cache"] = cache
+        await self.save()
+
 
 # Global state manager instance
 state_manager = StateManager()

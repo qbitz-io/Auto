@@ -7,6 +7,7 @@ from ..core import get_llm, state_manager, BuildStep, SystemCapability
 from ..tools import BASE_TOOLS
 from .self_improver import self_improver
 from .researcher import ResearchAgent
+from .planner import PlannerAgent, planner
 import uuid
 import re
 import hashlib
@@ -62,6 +63,7 @@ class OrchestratorAgent:
         self.tools = BASE_TOOLS
         self.agent_executor = None
         self.research_agent = ResearchAgent()
+        self.planner_agent = planner
         self._initialize_agent()
     
     def _initialize_agent(self):
@@ -111,6 +113,23 @@ class OrchestratorAgent:
             results[api] = snippets
         return results
 
+    def _is_complex_prompt(self, prompt: str) -> bool:
+        """Detect if the prompt is complex based on criteria:
+        - 100+ words
+        - Mentions multiple subsystems
+        - Contains phrases like 'build a complete system'
+        """
+        word_count = len(prompt.split())
+        if word_count >= 100:
+            return True
+        subsystems = ["agents", "tools", "core", "frontend", "backend", "api", "main entry point"]
+        subsystems_mentioned = sum(1 for s in subsystems if s in prompt.lower())
+        if subsystems_mentioned >= 2:
+            return True
+        if re.search(r"build a complete system", prompt.lower()):
+            return True
+        return False
+
     async def run(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Run the orchestrator with a specific task.
         
@@ -150,6 +169,30 @@ class OrchestratorAgent:
             research_results = await self._research_apis(unfamiliar_apis)
             # Add research results to context
             full_context["research_results"] = research_results
+
+        # Detect if task is complex
+        if self._is_complex_prompt(task):
+            # Use PlannerAgent to decompose into phases
+            plan_result = await self.planner_agent.plan(task)
+            plan_output = plan_result.get("output", "")
+
+            # Parse plan output to extract phases
+            # For simplicity, assume plan output is a numbered list of steps
+            phases = re.findall(r"\d+\.\s*(.+)", plan_output)
+
+            aggregated_results = []
+            for phase in phases:
+                # Execute each phase sequentially
+                phase_result = await self.run(phase, context=full_context)
+                aggregated_results.append({"phase": phase, "result": phase_result})
+
+            # Aggregate results into a summary
+            summary = "\n".join([f"Phase: {r['phase']}\nResult: {r['result'].get('output', '')}" for r in aggregated_results])
+
+            # Cache the aggregated summary
+            await state_manager.add_cached_result(task_hash, summary)
+
+            return {"output": summary, "phases_executed": len(phases)}
 
         # Create build step
         step_id = str(uuid.uuid4())
