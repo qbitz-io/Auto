@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.core import state_manager, build_loop, settings
+from backend.core.file_guardian import file_guardian
 from backend.agents import orchestrator
 
 
@@ -175,6 +176,80 @@ async def get_status():
         "total_files": len(state.generated_files),
         "total_steps": len(state.build_steps),
         "last_updated": state.last_updated.isoformat() if state.last_updated else None,
+    }
+
+
+# --- File Guardian: Human-in-the-loop approval endpoints ---
+
+@app.get("/api/approvals")
+async def list_approvals(status: str = "pending"):
+    """List file write approvals. Filter by status: pending, approved, denied, or all."""
+    if status == "all":
+        approvals = await file_guardian.get_all()
+    elif status == "pending":
+        approvals = await file_guardian.get_pending()
+    else:
+        all_approvals = await file_guardian.get_all()
+        approvals = [a for a in all_approvals if a.status == status]
+
+    return {
+        "approvals": [a.model_dump(mode="json") for a in approvals],
+        "count": len(approvals),
+    }
+
+
+@app.get("/api/approvals/{approval_id}")
+async def get_approval(approval_id: str):
+    """Get details of a specific approval including the proposed file content."""
+    approval = await file_guardian.get_approval(approval_id)
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    return approval.model_dump(mode="json")
+
+
+@app.post("/api/approvals/{approval_id}/approve")
+async def approve_write(approval_id: str):
+    """Approve a pending file write. This will execute the write."""
+    approval = await file_guardian.approve(approval_id)
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found or already resolved")
+
+    # Execute the approved write
+    full_path = settings.project_root / approval.file_path
+    try:
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(full_path, "w") as f:
+            f.write(approval.content)
+        await state_manager.add_generated_file(approval.file_path)
+        return {
+            "status": "approved_and_written",
+            "file_path": approval.file_path,
+            "message": f"Change to {approval.file_path} has been approved and applied.",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Approved but write failed: {str(e)}")
+
+
+@app.post("/api/approvals/{approval_id}/deny")
+async def deny_write(approval_id: str):
+    """Deny a pending file write. The change will be discarded."""
+    approval = await file_guardian.deny(approval_id)
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found or already resolved")
+    return {
+        "status": "denied",
+        "file_path": approval.file_path,
+        "message": f"Change to {approval.file_path} has been denied.",
+    }
+
+
+@app.get("/api/protected-files")
+async def list_protected_files():
+    """List all protected file paths."""
+    from backend.core.file_guardian import PROTECTED_PATHS, FORBIDDEN_PATHS
+    return {
+        "protected": PROTECTED_PATHS,
+        "forbidden": FORBIDDEN_PATHS,
     }
 
 

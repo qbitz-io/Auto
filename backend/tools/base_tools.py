@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, List
 from langchain_core.tools import tool
 from ..core import settings, state_manager
+from ..core.file_guardian import file_guardian
 
 
 @tool
@@ -29,23 +30,45 @@ async def read_file(file_path: str) -> str:
 @tool
 async def write_file(file_path: str, content: str) -> str:
     """Write content to a file, creating directories if needed.
-    
+
+    Protected core files require human approval before they can be modified.
+    Forbidden files (.env, .git) are always blocked.
+
     Args:
         file_path: Path to the file to write (relative to project root)
         content: Content to write to the file
-    
+
     Returns:
         Success or error message
     """
+    # GUARDIAN CHECK: Block forbidden files entirely
+    if file_guardian.is_forbidden(file_path):
+        return f"BLOCKED: '{file_path}' is a forbidden path and cannot be written to."
+
+    # GUARDIAN CHECK: Protected files need human approval
+    if file_guardian.is_protected(file_path):
+        approval = await file_guardian.request_approval(
+            file_path=file_path,
+            content=content,
+            reason=f"Auto attempted to modify protected core file: {file_path}",
+        )
+        return (
+            f"QUEUED FOR APPROVAL: '{file_path}' is a protected core file. "
+            f"Change has been queued for human review (approval id: {approval.id}). "
+            f"A human must approve this change at /api/approvals/{approval.id}/approve before it takes effect. "
+            f"Do NOT attempt to bypass this protection."
+        )
+
+    # Non-protected file: write normally
     full_path = settings.project_root / file_path
     try:
         full_path.parent.mkdir(parents=True, exist_ok=True)
         with open(full_path, 'w') as f:
             f.write(content)
-        
+
         # Track generated file
         await state_manager.add_generated_file(file_path)
-        
+
         return f"Successfully wrote to {file_path}"
     except Exception as e:
         return f"Error writing file: {str(e)}"
