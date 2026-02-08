@@ -36,6 +36,12 @@ PROTECTED_PATHS = [
     "frontend/next.config.ts",
     "frontend/package.json",
     "frontend/tsconfig.json",
+    # Frontend components (locked after working)
+    "frontend/components/ChatInterface.tsx",
+    "frontend/components/StatusPanel.tsx",
+    "frontend/components/CapabilitiesPanel.tsx",
+    "frontend/components/BuildStepsPanel.tsx",
+    "frontend/components/ControlPanel.tsx",
 ]
 
 # Paths that are always blocked, even with approval

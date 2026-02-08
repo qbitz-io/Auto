@@ -5,6 +5,7 @@ import { StatusPanel } from "@/components/StatusPanel";
 import { CapabilitiesPanel } from "@/components/CapabilitiesPanel";
 import { BuildStepsPanel } from "@/components/BuildStepsPanel";
 import { ControlPanel } from "@/components/ControlPanel";
+import { ChatInterface } from "@/components/ChatInterface";
 
 export default function Home() {
   const [status, setStatus] = useState<any>(null);
@@ -137,6 +138,7 @@ export default function Home() {
             onTriggerBuild={handleTriggerBuild}
             onStopBuild={handleStopBuild}
           />
+          <ChatInterface />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
