@@ -223,8 +223,8 @@ class OrchestratorAgent:
             # Cache the result
             await state_manager.add_cached_result(task_hash, output_str)
             
-            # After main run, invoke self-improver for syncing docs and improvements
-            await self_improver.improve("Sync documentation with new capabilities and improvements.")
+            # TODO: Re-enable as non-blocking background task instead of blocking post-task hook
+            # await self_improver.improve("Sync documentation with new capabilities and improvements.")
             
             return result
         
