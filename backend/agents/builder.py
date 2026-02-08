@@ -2,10 +2,19 @@
 from typing import Dict, Any
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from ..core import get_llm, state_manager, BuildStep
+from ..core import get_llm, state_manager, BuildStep, SystemCapability
 from ..tools import BASE_TOOLS
 import uuid
+import os
 
+
+FILE_TYPE_MAP = {
+    "python": {"extension": ".py", "directory": "backend"},
+    "javascript": {"extension": ".js", "directory": "frontend"},
+    "typescript": {"extension": ".ts", "directory": "frontend"},
+    "typescriptreact": {"extension": ".tsx", "directory": "frontend/components"},
+    "javascriptreact": {"extension": ".jsx", "directory": "frontend/components"},
+}
 
 BUILDER_PROMPT = """You are the Builder agent for a self-building LangChain system.
 
@@ -76,6 +85,47 @@ class BuilderAgent:
             max_iterations=20,
             handle_parsing_errors=True
         )
+
+    async def write_file(self, language: str, filename: str, content: str) -> str:
+        """Write a file validating language, setting extension and directory.
+
+        Args:
+            language: Programming language name (e.g. 'python', 'typescript')
+            filename: Base filename without extension
+            content: File content
+
+        Returns:
+            Path of the written file
+        """
+        lang_key = language.lower()
+        if lang_key not in FILE_TYPE_MAP:
+            raise ValueError(f"Unsupported language: {language}")
+
+        ext = FILE_TYPE_MAP[lang_key]["extension"]
+        directory = FILE_TYPE_MAP[lang_key]["directory"]
+
+        # Ensure directory exists
+        os.makedirs(directory, exist_ok=True)
+
+        # Construct full file path
+        if not filename.endswith(ext):
+            filename = filename + ext
+        file_path = os.path.join(directory, filename)
+
+        # Use the write_file tool from BASE_TOOLS
+        write_tool = next((t for t in self.tools if t.name == "write_file"), None)
+        if not write_tool:
+            raise RuntimeError("write_file tool not found")
+
+        # Call the tool
+        result = await write_tool.arun(file_path=file_path, content=content)
+
+        # Register the new file as a capability
+        # Derive a description from the file path
+        description = f"Auto-registered capability for {file_path}"
+        await state_manager.add_generated_file(file_path, description=description)
+
+        return file_path
     
     async def build(self, task: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Execute a build task.

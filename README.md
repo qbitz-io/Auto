@@ -9,6 +9,12 @@ A self-building AI system that autonomously plans, builds, validates, and improv
 ✅ FileGuardian protection system  
 ✅ Human-in-the-loop approvals  
 ✅ ResearchAgent for live documentation  
+✅ Sandbox Garage for isolated Fly.io testing
+✅ Scoring System for rigorous code evaluation
+✅ GitHub Integration for automated commits and tagging
+✅ Fly.io Deployment with health checks and DNS switching
+✅ React Native App for mobile interaction
+✅ Launcher Service for user instance management
 
 > **🔒 Repository Status: LOCKED CORE v1.0.0**  
 > This is the stable foundation. **No PRs accepted.** Fork to extend.
@@ -130,6 +136,48 @@ The ResearchAgent is a specialized agent that autonomously gathers information, 
 
 ---
 
+## Sandbox Garage
+
+The Sandbox Garage system spawns isolated Fly.io clone instances where code changes can be tested safely. It supports iterative building, testing, scoring, and refining until features meet high-quality standards.
+
+---
+
+## Scoring System
+
+Auto evaluates code changes rigorously based on:
+- Functionality (4 points)
+- Code Quality (2 points)
+- Performance (2 points)
+- Safety (2 points)
+
+Only code scoring a perfect 10/10 is accepted and committed.
+
+---
+
+## GitHub Integration
+
+When code achieves a 10/10 score, Auto automatically commits changes to GitHub with detailed messages including iteration counts and final scores. It also tags versions appropriately.
+
+---
+
+## Fly.io Deployment
+
+After committing to GitHub, Auto deploys the latest code to a new Fly.io instance, runs health checks, switches DNS to the new instance, and cleans up old instances after a grace period.
+
+---
+
+## React Native App
+
+A mobile app with a single chat interface and approval popups (modal/bottom sheet) connects to the user's Fly.io instance via API key, enabling on-the-go interaction with Auto.
+
+---
+
+## Launcher Service
+
+The Launcher Service provides an API endpoint to spin up new Fly.io instances for users, generate API keys, and return connection details to the mobile app.
+
+---
+
 ## Architecture Overview
 
 Auto's architecture consists of:
@@ -141,27 +189,33 @@ Auto's architecture consists of:
   - *ValidatorAgent:* Checks code correctness and quality.
   - *ToolsmithAgent:* Creates new tools to extend capabilities.
   - *ResearchAgent:* Conducts autonomous research to inform planning.
+  - *SandboxManagerAgent:* Manages isolated testing environments.
+  - *ScoringAgent:* Evaluates code quality and safety.
+  - *GitHubAgent:* Handles automated commits and tagging.
+  - *FlyioAgent:* Manages Fly.io deployments and health checks.
+  - *LauncherAgent:* Provides user instance management API.
 
 - **Tools:**
   - Base tools for file operations and system interaction.
   - Dynamically generated tools created by the ToolsmithAgent.
 
 - **Build Loop:**
-  - Iterative cycle of planning, building, validating, and approval.
+  - Iterative cycle of planning, building, validating, scoring, approval, and deployment.
   - Continuous improvement and self-enhancement.
 
 - **Frontend:**
   - Next.js UI for monitoring, control, and chat-based interaction.
+  - React Native mobile app for on-the-go access.
 
 - **Backend:**
-  - FastAPI server exposing APIs for frontend communication.
+  - FastAPI server exposing APIs for frontend communication and launcher service.
   - Persistent state management and configuration.
 
 ---
 
 ## Contributing
 
-## 🔒 Repository Status: LOCKED CORE
+## Repository Status: LOCKED CORE
 
 **Version:** 1.0.0 (Stable Foundation)
 

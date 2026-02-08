@@ -1,5 +1,6 @@
 """Base tools for the self-building system."""
 import os
+import re
 import ast
 import subprocess
 from pathlib import Path
@@ -7,6 +8,70 @@ from typing import Optional, List
 from langchain_core.tools import tool
 from ..core import settings, state_manager
 from ..core.file_guardian import file_guardian
+
+
+# File type routing: extension → allowed directories
+# Prevents writing code to the wrong location (e.g. JSX in backend/)
+FILE_TYPE_ROUTES = {
+    ".py": ["backend/"],
+    ".js": ["frontend/", "scripts/"],
+    ".jsx": ["frontend/"],
+    ".ts": ["frontend/"],
+    ".tsx": ["frontend/", "mobile/"],
+    ".css": ["frontend/"],
+    ".json": ["backend/", "frontend/", "mobile/", "."],
+    ".md": ["."],
+    ".html": ["frontend/"],
+    ".toml": ["."],
+    ".txt": ["backend/", "."],
+    ".yml": ["."],
+    ".yaml": ["."],
+}
+
+# Windows reserved filenames that cannot be created
+WINDOWS_RESERVED_NAMES = {
+    "con", "prn", "aux", "nul",
+    "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+    "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+}
+
+
+def _validate_file_path(file_path: str) -> Optional[str]:
+    """Validate a file path for safety and correctness.
+
+    Returns an error message if invalid, None if OK.
+    """
+    normalized = file_path.replace("\\", "/").lstrip("/")
+
+    # Check for Windows reserved names in any path component
+    for part in Path(normalized).parts:
+        name_without_ext = part.split(".")[0].lower()
+        if name_without_ext in WINDOWS_RESERVED_NAMES:
+            return f"BLOCKED: '{part}' is a Windows reserved filename and cannot be used."
+
+    # Check file extension routing
+    ext = Path(normalized).suffix.lower()
+    if ext and ext in FILE_TYPE_ROUTES:
+        allowed_dirs = FILE_TYPE_ROUTES[ext]
+        in_allowed_dir = False
+        for allowed in allowed_dirs:
+            if allowed == ".":
+                # Root-level files OK if only one path component
+                if "/" not in normalized:
+                    in_allowed_dir = True
+                    break
+            elif normalized.startswith(allowed):
+                in_allowed_dir = True
+                break
+        if not in_allowed_dir:
+            allowed_list = ", ".join(FILE_TYPE_ROUTES[ext])
+            return (
+                f"BLOCKED: '{ext}' files should be in [{allowed_list}], "
+                f"but '{normalized}' is outside those directories. "
+                f"Use the correct directory for this file type."
+            )
+
+    return None
 
 
 @tool
@@ -41,6 +106,11 @@ async def write_file(file_path: str, content: str) -> str:
     Returns:
         Success or error message
     """
+    # PATH VALIDATION: Check extension/directory routing and reserved names
+    path_error = _validate_file_path(file_path)
+    if path_error:
+        return path_error
+
     # GUARDIAN CHECK: Block forbidden files entirely
     if file_guardian.is_forbidden(file_path):
         return f"BLOCKED: '{file_path}' is a forbidden path and cannot be written to."
@@ -123,10 +193,19 @@ async def run_command(command: str, cwd: Optional[str] = None) -> str:
     Returns:
         Command output or error
     """
+    # Sanitize: replace redirects to Windows reserved names (e.g. "> nul")
+    # with /dev/null equivalent for the current platform
+    sanitized = re.sub(
+        r'>\s*(?:' + '|'.join(WINDOWS_RESERVED_NAMES) + r')\b',
+        '> /dev/null',
+        command,
+        flags=re.IGNORECASE,
+    )
+
     work_dir = settings.project_root / cwd if cwd else settings.project_root
     try:
         result = subprocess.run(
-            command,
+            sanitized,
             shell=True,
             cwd=work_dir,
             capture_output=True,

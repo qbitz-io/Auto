@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
+import json
 
 
 # Core files that define Auto's identity and architecture.
@@ -67,9 +68,12 @@ class PendingApproval(BaseModel):
 class FileGuardian:
     """Guards protected files from unauthorized modification."""
 
+    APPROVALS_FILE = Path(__file__).parent.parent / ".approvals.json"
+
     def __init__(self):
         self._approvals: Dict[str, PendingApproval] = {}
         self._lock = asyncio.Lock()
+        self._load_approvals_from_disk()
 
     def is_protected(self, file_path: str) -> bool:
         """Check if a file path is protected."""
@@ -87,6 +91,33 @@ class FileGuardian:
                 return True
         return False
 
+    def _load_approvals_from_disk(self):
+        """Load approvals from the JSON file on disk."""
+        if self.APPROVALS_FILE.exists():
+            try:
+                with open(self.APPROVALS_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                for item in data:
+                    approval = PendingApproval.model_validate(item)
+                    self._approvals[approval.id] = approval
+            except Exception as e:
+                print(f"Failed to load approvals from disk: {e}")
+
+    def _save_approvals_to_disk(self):
+        """Save current approvals to the JSON file on disk.
+
+        Note: Callers must already hold self._lock before calling this method.
+        """
+        try:
+            data = [a.model_dump() for a in self._approvals.values()]
+            # Write atomically
+            tmp_file = self.APPROVALS_FILE.with_suffix(".tmp")
+            with open(tmp_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, default=str, indent=2)
+            tmp_file.replace(self.APPROVALS_FILE)
+        except Exception as e:
+            print(f"Failed to save approvals to disk: {e}")
+
     async def request_approval(self, file_path: str, content: str, reason: str = "") -> PendingApproval:
         """Queue a write for human approval. Returns the pending approval."""
         async with self._lock:
@@ -96,6 +127,7 @@ class FileGuardian:
                 reason=reason,
             )
             self._approvals[approval.id] = approval
+            self._save_approvals_to_disk()
             return approval
 
     async def get_pending(self) -> List[PendingApproval]:
@@ -120,6 +152,7 @@ class FileGuardian:
             if approval and approval.status == "pending":
                 approval.status = "approved"
                 approval.reviewed_at = datetime.now()
+                self._save_approvals_to_disk()
                 return approval
             return None
 
@@ -130,6 +163,7 @@ class FileGuardian:
             if approval and approval.status == "pending":
                 approval.status = "denied"
                 approval.reviewed_at = datetime.now()
+                self._save_approvals_to_disk()
                 return approval
             return None
 
@@ -139,6 +173,7 @@ class FileGuardian:
             resolved = [k for k, v in self._approvals.items() if v.status != "pending"]
             for k in resolved:
                 del self._approvals[k]
+            self._save_approvals_to_disk()
             return len(resolved)
 
 

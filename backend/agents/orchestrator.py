@@ -1,5 +1,5 @@
 """Orchestrator agent - the core agent responsible for planning and coordination."""
-from typing import List, Dict, Any, AsyncIterator
+from typing import List, Dict, Any, AsyncIterator, Optional
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
@@ -9,6 +9,7 @@ from .self_improver import self_improver
 from .researcher import ResearchAgent
 import uuid
 import re
+import hashlib
 
 
 ORCHESTRATOR_PROMPT = """You are the Orchestrator agent for a self-building LangChain system.
@@ -110,7 +111,7 @@ class OrchestratorAgent:
             results[api] = snippets
         return results
 
-    async def run(self, task: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def run(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Run the orchestrator with a specific task.
         
         Args:
@@ -120,6 +121,14 @@ class OrchestratorAgent:
         Returns:
             Agent execution result
         """
+        # Hash the task prompt
+        task_hash = hashlib.sha256(task.encode('utf-8')).hexdigest()
+
+        # Check cache for recent result
+        cached_result = await state_manager.get_cached_result(task_hash)
+        if cached_result is not None:
+            return {"output": cached_result, "cached": True}
+
         # Get current state
         state = await state_manager.get_state()
         
@@ -159,12 +168,17 @@ class OrchestratorAgent:
                 **full_context
             })
             
+            output_str = str(result.get("output", ""))
+
             # Update step
             await state_manager.update_build_step(
                 step_id,
                 status="completed",
-                result=str(result.get("output", ""))
+                result=output_str
             )
+
+            # Cache the result
+            await state_manager.add_cached_result(task_hash, output_str)
             
             # After main run, invoke self-improver for syncing docs and improvements
             await self_improver.improve("Sync documentation with new capabilities and improvements.")
