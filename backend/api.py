@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
+import uuid
 
 import sys
 from pathlib import Path
@@ -15,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from backend.core import state_manager, build_loop, settings
 from backend.core.file_guardian import file_guardian
 from backend.agents import orchestrator
+from backend.agents.flyio_agent import flyio_agent
 
 
 # Create FastAPI app
@@ -44,6 +46,19 @@ class TaskRequest(BaseModel):
     """Request to execute a task."""
     task: str
     context: Dict[str, Any] = {}
+
+
+# Launcher service models
+class LaunchRequest(BaseModel):
+    branch: str
+    repo_url: str
+
+
+class LaunchResponse(BaseModel):
+    instance_id: str
+    app_name: str
+    url: str
+    api_key: str
 
 
 # WebSocket connection manager
@@ -251,6 +266,32 @@ async def list_protected_files():
         "protected": PROTECTED_PATHS,
         "forbidden": FORBIDDEN_PATHS,
     }
+
+
+@app.post("/api/launcher/launch", response_model=LaunchResponse)
+async def launch_instance(request: LaunchRequest):
+    """Launch a new Fly.io instance and generate API key."""
+    try:
+        instance_id = await flyio_agent.spawn_instance(request.branch, request.repo_url)
+        instance_meta = flyio_agent.instances.get(instance_id)
+        if not instance_meta:
+            raise HTTPException(status_code=500, detail="Failed to retrieve instance metadata")
+
+        # Generate API key
+        api_key = str(uuid.uuid4())
+
+        # Store API key in instance metadata (in-memory for now)
+        instance_meta["api_key"] = api_key
+
+        # Return connection details
+        return LaunchResponse(
+            instance_id=instance_id,
+            app_name=instance_meta["app_name"],
+            url=instance_meta.get("url") or "deploying",
+            api_key=api_key
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.websocket("/ws")

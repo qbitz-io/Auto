@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from core import build_loop, state_manager
+from agents.orchestrator import orchestrator
 
 
 async def main():
@@ -20,9 +21,12 @@ async def main():
     state = await state_manager.load()
     print(f"State loaded: {len(state.capabilities)} capabilities, {len(state.generated_files)} files")
     
-    # Run the self-build loop
-    print("\nStarting self-build loop...\n")
-    await build_loop.run()
+    # Run the self-build loop and monitor/improve loop concurrently
+    print("\nStarting self-build loop and monitoring loop...\n")
+    await asyncio.gather(
+        build_loop.run(),
+        orchestrator.monitor_and_improve(interval_seconds=600)
+    )
     
     print("\n" + "=" * 60)
     print("Self-build process complete!")
@@ -39,11 +43,11 @@ async def main():
     # Show unimplemented capabilities
     unimplemented = [c for c in final_state.capabilities if not c.implemented]
     if unimplemented:
-        print(f"\n⚠ Unimplemented capabilities:")
+        print(f"\n60 Unimplemented capabilities:")
         for cap in unimplemented:
             print(f"  - {cap.name}: {cap.file_path}")
     else:
-        print("\n✓ All capabilities implemented!")
+        print("\n73 All capabilities implemented!")
 
 
 if __name__ == "__main__":

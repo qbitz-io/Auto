@@ -11,6 +11,7 @@ from .planner import PlannerAgent, planner
 import uuid
 import re
 import hashlib
+import asyncio
 
 
 ORCHESTRATOR_PROMPT = """You are the Orchestrator agent for a self-building LangChain system.
@@ -193,9 +194,11 @@ class OrchestratorAgent:
             plan_result = await self.planner_agent.plan(task)
             plan_output = plan_result.get("output", "")
 
-            # Parse plan output to extract phases
-            # For simplicity, assume plan output is a numbered list of steps
-            phases = re.findall(r"\d+\.\s*(.+)", plan_output)
+            # Parse plan output to extract phases (planner uses "Description: ..." format)
+            phases = re.findall(r"Description:\s*(.+)", plan_output)
+            if not phases:
+                # Fallback: try numbered list format "1. ..."
+                phases = re.findall(r"\d+\.\s*(.+)", plan_output)
 
             aggregated_results = []
             for phase in phases:
@@ -240,9 +243,8 @@ class OrchestratorAgent:
             # Cache the result
             await state_manager.add_cached_result(task_hash, output_str)
             
-            # Run self_improver asynchronously after task completion
-            import asyncio
-            asyncio.create_task(self_improver.improve("Sync documentation with new capabilities and improvements."))
+            # Self-improver disabled — causes lockups during multi-phase builds
+            # asyncio.create_task(self_improver.improve("Sync documentation with new capabilities and improvements."))
             
             return result
         
@@ -290,6 +292,9 @@ class OrchestratorAgent:
             "Check syntax and ensure imports are correct. "
             "Report any issues found."
         )
+
+    # monitor_and_improve disabled — infinite loop with blocking self_improver calls
+    # was causing lockups. Re-enable when self-improver is stable.
 
 
 # Global orchestrator instance
