@@ -6,7 +6,9 @@ from langchain_core.messages import HumanMessage, AIMessage
 from ..core import get_llm, state_manager, BuildStep, SystemCapability
 from ..tools import BASE_TOOLS
 from .self_improver import self_improver
+from .researcher import ResearchAgent
 import uuid
+import re
 
 
 ORCHESTRATOR_PROMPT = """You are the Orchestrator agent for a self-building LangChain system.
@@ -58,6 +60,7 @@ class OrchestratorAgent:
         self.llm = get_llm()
         self.tools = BASE_TOOLS
         self.agent_executor = None
+        self.research_agent = ResearchAgent()
         self._initialize_agent()
     
     def _initialize_agent(self):
@@ -77,7 +80,36 @@ class OrchestratorAgent:
             max_iterations=20,
             handle_parsing_errors=True
         )
-    
+
+    def _detect_unfamiliar_apis(self, text: str) -> List[str]:
+        """Detect unfamiliar APIs or libraries mentioned in the text.
+        For demonstration, we check for known libraries and return those not recognized.
+        """
+        known_libs = set(self.research_agent.DOC_SITES.keys())
+        # Simple regex to find words that look like library names (alphanumeric and dots)
+        candidates = set(re.findall(r"\b[a-zA-Z0-9_.]+\b", text.lower()))
+        # Filter candidates to those that look like known libs or common libs
+        # For demo, consider any candidate not in known_libs as unfamiliar
+        unfamiliar = [lib for lib in candidates if lib not in known_libs and len(lib) > 2]
+        # Limit to a few
+        return unfamiliar[:3]
+
+    async def _research_apis(self, apis: List[str]) -> Dict[str, List[str]]:
+        """Use ResearchAgent to fetch documentation snippets for given APIs."""
+        results = {}
+        for api in apis:
+            # For demo, try to search in all supported docs
+            snippets = []
+            for lib in self.research_agent.DOC_SITES.keys():
+                try:
+                    found = self.research_agent.search(lib, api, max_results=2)
+                    if found:
+                        snippets.extend([f"[{lib}] {s}" for s in found])
+                except Exception:
+                    continue
+            results[api] = snippets
+        return results
+
     async def run(self, task: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Run the orchestrator with a specific task.
         
@@ -102,7 +134,14 @@ class OrchestratorAgent:
         
         if context:
             full_context.update(context)
-        
+
+        # Detect unfamiliar APIs in the task
+        unfamiliar_apis = self._detect_unfamiliar_apis(task)
+        if unfamiliar_apis:
+            research_results = await self._research_apis(unfamiliar_apis)
+            # Add research results to context
+            full_context["research_results"] = research_results
+
         # Create build step
         step_id = str(uuid.uuid4())
         step = BuildStep(
@@ -140,7 +179,7 @@ class OrchestratorAgent:
                 error=str(e)
             )
             raise
-    
+
     async def analyze_system(self) -> Dict[str, Any]:
         """Analyze current system state and identify gaps.
         
