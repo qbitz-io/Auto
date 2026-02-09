@@ -5,7 +5,6 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from ..core import get_llm, state_manager, BuildStep, SystemCapability
 from ..tools import BASE_TOOLS
-from .self_improver import self_improver
 from .researcher import ResearchAgent
 from .planner import PlannerAgent, planner
 import uuid
@@ -243,8 +242,7 @@ class OrchestratorAgent:
             # Cache the result
             await state_manager.add_cached_result(task_hash, output_str)
             
-            # Self-improver disabled — causes lockups during multi-phase builds
-            # asyncio.create_task(self_improver.improve("Sync documentation with new capabilities and improvements."))
+            # Post-task hooks can be added here (e.g. consolidation, validation)
             
             return result
         
@@ -293,8 +291,6 @@ class OrchestratorAgent:
             "Report any issues found."
         )
 
-    # monitor_and_improve disabled — infinite loop with blocking self_improver calls
-    # was causing lockups. Re-enable when self-improver is stable.
 
 
 # Global orchestrator instance

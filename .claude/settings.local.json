@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"D:/Git/Auto\" show HEAD:backend/agents/flyio_agent.py)",
+      "Bash(git -C \"D:/Git/Auto\" show HEAD:backend/agents/react_native_app.py)"
+    ]
+  }
+}
