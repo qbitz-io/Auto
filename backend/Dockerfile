@@ -2,19 +2,21 @@
 FROM python:3.11-slim
 
 # Set working directory
-WORKDIR /app
+WORKDIR /app/backend
 
-# Copy backend code
-COPY ./backend ./backend
-
-# Copy requirements file
-COPY ./backend/requirements.txt ./backend/
+# Copy backend code selectively
+COPY ./backend/agents ./agents
+COPY ./backend/tools ./tools
+COPY ./backend/core ./core
+COPY ./backend/main.py ./
+COPY ./backend/api.py ./
+COPY ./requirements.txt ./
 
 # Create memory directory for persistent state
 RUN mkdir -p /app/backend/memory
 
 # Install dependencies
-RUN pip install --no-cache-dir -r backend/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose port (default 8080)
 EXPOSE 8080
