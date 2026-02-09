@@ -92,6 +92,9 @@ class ToolsmithAgent:
         Returns:
             Result of tool creation
         """
+        if not requirement or not isinstance(requirement, str):
+            raise TypeError("Requirement must be a non-empty string")
+
         # Get current state
         state = await state_manager.get_state()
         

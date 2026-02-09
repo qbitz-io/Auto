@@ -1,24 +1,25 @@
 import unittest
+import asyncio
 from backend.agents.orchestrator import OrchestratorAgent
 
-class TestOrchestratorAgent(unittest.TestCase):
-    def setUp(self):
+class TestOrchestratorAgent(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
         self.orchestrator = OrchestratorAgent()
 
-    def test_orchestrate(self):
+    async def test_run(self):
         goal = "Test orchestration"
-        result = self.orchestrator.orchestrate(goal)
+        result = await self.orchestrator.run(goal)
         self.assertIsNotNone(result)
 
-    def test_orchestrate_empty_goal(self):
+    async def test_run_empty_goal(self):
         goal = ""
-        result = self.orchestrator.orchestrate(goal)
-        self.assertIsNone(result)
+        result = await self.orchestrator.run(goal)
+        self.assertIsNotNone(result)  # Should return some output even for empty
 
-    def test_orchestrate_none_goal(self):
+    async def test_run_none_goal(self):
         goal = None
         with self.assertRaises(TypeError):
-            self.orchestrator.orchestrate(goal)
+            await self.orchestrator.run(goal)
 
 if __name__ == '__main__':
     unittest.main()

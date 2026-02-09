@@ -5,6 +5,7 @@ from backend.core.state import StateManager, BuildStep, SystemCapability
 import os
 import tempfile
 from unittest.mock import patch
+from pathlib import Path
 
 with patch('backend.core.config.Settings') as MockSettings:
     MockSettings.return_value.openai_api_key = 'test_key'
@@ -13,7 +14,7 @@ class TestStateManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         # Use a temporary file for state
         self.temp_file = tempfile.NamedTemporaryFile(delete=False)
-        self.state_manager = StateManager(state_file=self.temp_file.name)
+        self.state_manager = StateManager(state_file=Path(self.temp_file.name))
 
     async def asyncTearDown(self):
         self.temp_file.close()

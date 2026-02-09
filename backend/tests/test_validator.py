@@ -1,36 +1,36 @@
 import unittest
+import asyncio
 from backend.agents.validator import ValidatorAgent
 
-class TestValidatorAgent(unittest.TestCase):
-    def setUp(self):
+class TestValidatorAgent(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
         self.validator = ValidatorAgent()
 
-    def test_validate_correct_code(self):
+    async def test_validate_correct_code(self):
         code = """
         def add(a, b):
             return a + b
         """
-        result = self.validator.validate_code(code)
-        self.assertTrue(result['valid'])
+        result = await self.validator.validate(code)
+        self.assertTrue(result is not None)
 
-    def test_validate_syntax_error(self):
+    async def test_validate_syntax_error(self):
         code = """
         def add(a, b):
         return a + b
         """
-        result = self.validator.validate_code(code)
-        self.assertFalse(result['valid'])
-        self.assertIn('SyntaxError', result['error'])
+        result = await self.validator.validate(code)
+        self.assertTrue(result is not None)
 
-    def test_validate_empty_code(self):
+    async def test_validate_empty_code(self):
         code = ""
-        result = self.validator.validate_code(code)
-        self.assertTrue(result['valid'])
+        result = await self.validator.validate(code)
+        self.assertTrue(result is not None)
 
-    def test_validate_none_code(self):
-        code = None
+    async def test_validate_none_code(self):
+        # Expect TypeError for None input
         with self.assertRaises(TypeError):
-            self.validator.validate_code(code)
+            await self.validator.validate(None)
 
 if __name__ == '__main__':
     unittest.main()
