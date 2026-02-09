@@ -5,13 +5,16 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy backend code
-COPY backend/ ./backend/
+COPY ./backend ./backend
 
 # Copy requirements file
-COPY backend/requirements.txt ./
+COPY ./backend/requirements.txt ./backend/
+
+# Create memory directory for persistent state
+RUN mkdir -p /app/backend/memory
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Expose port (default 8080)
 EXPOSE 8080

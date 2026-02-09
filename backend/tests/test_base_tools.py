@@ -1,12 +1,13 @@
 import unittest
 import asyncio
 import os
-from unittest.mock import patch
+import sys
 
-with patch('backend.core.config.Settings') as MockSettings:
-    MockSettings.return_value.openai_api_key = 'test_key'
-    from backend.tools import base_tools
-    from backend.core import settings
+# Set environment variable before importing modules
+os.environ['OPENAI_API_KEY'] = 'test_key'
+
+from backend.tools import base_tools
+from backend.core import settings
 
 class TestBaseTools(unittest.IsolatedAsyncioTestCase):
     async def test_validate_file_path(self):
