@@ -197,3 +197,71 @@ The root cause isn't blocking vs non-blocking. It's **concurrent LLM access**. W
 7. **Agent execution queue** — serialize all LLM calls through a single queue
 8. **Real-time monitoring** — Prometheus metrics + WebSocket activity feed
 9. **Code review gate** — prevent Auto from re-enabling disabled code
+
+---
+
+## Experiment 03c: Post-Hardening Validation (2026-02-09)
+
+### What We Did
+
+Continued from 03b with focus on Auto self-diagnosing and fixing its own issues.
+
+### Phase 1: NUL Ghost Bug Hunt
+- Gave Auto the task of finding and fixing the NUL file problem itself
+- Auto added empty content guard to `builder.py` `write_file()`: rejects empty/null writes with ValueError
+- Submitted fix through FileGuardian approval correctly
+
+### Phase 2: Stub Overwrite Attempts
+- Auto proposed rewrites of `planner.py`, `config.py`, `llm.py` — all inferior stubs
+- All three denied manually. Existing implementations are superior
+- Confirms need for pre-write check against existing files
+
+### Phase 3: Self-Awareness Test
+- Asked Auto to analyze its own codebase
+- Produced accurate summary of all agents, tools, state, API, frontend
+- Concluded it is "self-aware and capable of analyzing its own state"
+
+### Phase 4: Self-Validation
+- Auto read all test files, found mismatches between tests and actual APIs
+- Hit max_iterations (20) on first pass, resumed and completed when prompted
+- Fixed all test files: sync→async, wrong method names, wrong signatures, proper exceptions
+- Updated toolsmith.py to match new test expectations
+
+### Phase 5: Researcher Upgrade
+- Added Python, Node.js, React Native, Fly.io, GitHub to DOC_SITES
+- Built `research_before_build()` method and wired into build loop
+- Planner repeatedly hit max recursion depth during decomposition — known issue
+- State cache shows extensive over-decomposition traces
+
+### Phase 6: Deployment Prep
+- Auto created Dockerfile, fly.toml, settings.py, FLYIO.md
+- Missed requirements.txt initially — fixed immediately when told
+- Generated deployment docs and automation scripts
+
+### Phase 7: File Migration
+- `backend/agents/react_native_app.py` moved to `frontend/components/ReactNativeChatApp.tsx`
+- Correct extension, correct directory
+
+### Issues Resolved from Exp 01/03b
+| Bug | Status |
+|-----|--------|
+| #2 JSX as .py | Fixed — moved to .tsx |
+| #3 Wrong directory | Fixed — now in frontend/components/ |
+| #6 Dead import | Fixed — self_improver_tools removed from tools/__init__ |
+| #18 NUL ghost | Mitigated — empty content guard in builder |
+| #21 react_native_app location | Fixed — migrated |
+
+### New Observations
+| # | Finding |
+|---|---------|
+| 1 | Auto is functionally self-aware — reads, analyzes, modifies its own code |
+| 2 | Self-correction works — fixes quickly when told what it missed |
+| 3 | Planner is the bottleneck, not the builder |
+| 4 | Scoped explicit prompts get good results; vague multi-part requests get shallow treatment |
+| 5 | Auto went to fix the planner on its own after we observed the decomposition issue |
+
+### Ready for Experiment 04
+- Fly.io deployment files in place
+- Test suite aligned to actual APIs
+- Researcher wired into build loop
+- Next: Deploy to Fly.io, test Auto-Pool provisioner concept
