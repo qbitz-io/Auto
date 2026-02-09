@@ -1,5 +1,6 @@
 import asyncio
 from backend.agents import orchestrator, scoring_agent, github_agent, flyio_agent, sandbox_manager
+from backend.agents.duplicate_consolidator import duplicate_consolidator
 
 class BuildLoop:
     def __init__(self):
@@ -52,6 +53,10 @@ class BuildLoop:
             switched = await flyio_agent.switch_dns(instance_id)
             if switched:
                 print(f"Switched DNS to instance {instance_id}")
+
+        # 8. Run duplicate consolidator after successful build
+        consolidation_result = await duplicate_consolidator.run(f"Post-build duplicate consolidation for iteration {iteration}")
+        print(f"Duplicate consolidation result: {consolidation_result}")
 
         return {
             "iteration": iteration,

@@ -101,6 +101,10 @@ class BuilderAgent:
         if lang_key not in FILE_TYPE_MAP:
             raise ValueError(f"Unsupported language: {language}")
 
+        if not content or content.strip() == "":
+            # Prevent writing empty or nul files
+            raise ValueError(f"Attempted to write empty content to file {filename}")
+
         ext = FILE_TYPE_MAP[lang_key]["extension"]
         directory = FILE_TYPE_MAP[lang_key]["directory"]
 
