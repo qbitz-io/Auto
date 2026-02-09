@@ -22,5 +22,15 @@ class TestValidatorAgent(unittest.TestCase):
         self.assertFalse(result['valid'])
         self.assertIn('SyntaxError', result['error'])
 
+    def test_validate_empty_code(self):
+        code = ""
+        result = self.validator.validate_code(code)
+        self.assertTrue(result['valid'])
+
+    def test_validate_none_code(self):
+        code = None
+        with self.assertRaises(TypeError):
+            self.validator.validate_code(code)
+
 if __name__ == '__main__':
     unittest.main()

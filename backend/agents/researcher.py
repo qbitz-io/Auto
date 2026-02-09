@@ -4,7 +4,7 @@ import time
 import hashlib
 import requests
 from bs4 import BeautifulSoup
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 CACHE_DIR = os.path.join(os.path.dirname(__file__), '..', 'cache', 'docs')
 if not os.path.exists(CACHE_DIR):
@@ -21,6 +21,11 @@ class ResearchAgent:
     - React (https://react.dev)
     - Tailwind CSS (https://tailwindcss.com/docs)
     - FastAPI (https://fastapi.tiangolo.com)
+    - Python 3 (https://docs.python.org/3/)
+    - Node.js (https://nodejs.org/en/docs/)
+    - React-Native (https://reactnative.dev/docs/getting-started)
+    - Fly.io (https://fly.io/docs/)
+    - Github (https://docs.github.com/en)
     """
 
     DOC_SITES = {
@@ -29,6 +34,11 @@ class ResearchAgent:
         'react': 'https://react.dev',
         'tailwindcss': 'https://tailwindcss.com/docs',
         'fastapi': 'https://fastapi.tiangolo.com/en/latest/',
+        'python': 'https://docs.python.org/3/',
+        'nodejs': 'https://nodejs.org/en/docs/',
+        'react-native': 'https://reactnative.dev/docs/getting-started',
+        'flyio': 'https://fly.io/docs/',
+        'github': 'https://docs.github.com/en',
     }
 
     def __init__(self):
@@ -118,11 +128,41 @@ class ResearchAgent:
             if filename.endswith('.html'):
                 os.remove(os.path.join(CACHE_DIR, filename))
 
+    def research_before_build(self, task_description: str) -> Dict[str, List[str]]:
+        """
+        Parse the task description to extract relevant core stack technologies and
+        search their documentation for relevant snippets.
 
-# Example usage:
-# agent = ResearchAgent()
-# snippets = agent.search('langchain', 'memory')
-# print(snippets)
+        Args:
+            task_description: The textual description of the task.
 
+        Returns:
+            Dictionary mapping each detected library to a list of relevant snippets.
+        """
+        # Define keywords for core stack technologies
+        core_tech_keywords = {
+            'python': r'\bpython\b',
+            'fastapi': r'\bfastapi\b',
+            'langchain': r'\blangchain\b',
+            'nextjs': r'\bnext\.js\b|\bnextjs\b',
+            'react': r'\breact\b',
+            'tailwindcss': r'\btailwind\b|\btailwindcss\b',
+            'nodejs': r'\bnode\.js\b|\bnodejs\b',
+            'react-native': r'\breact[- ]native\b',
+            'flyio': r'\bfly\.io\b|\bflyio\b',
+            'github': r'\bgithub\b',
+        }
 
-# The ResearchAgent can be imported and used by other agents to research unfamiliar APIs or patterns.
+        detected_tech = []
+        lower_desc = task_description.lower()
+
+        for tech, pattern in core_tech_keywords.items():
+            if re.search(pattern, lower_desc):
+                detected_tech.append(tech)
+
+        results = {}
+        for tech in detected_tech:
+            snippets = self.search(tech, task_description, max_results=3)
+            results[tech] = snippets
+
+        return results

@@ -1,14 +1,21 @@
 import asyncio
-from backend.agents import orchestrator, scoring_agent, github_agent, flyio_agent, sandbox_manager
+from backend.agents import orchestrator, github_agent, flyio_agent, sandbox_manager
+from backend.agents.scoring_agent import scoring_agent
 from backend.agents.duplicate_consolidator import duplicate_consolidator
+from backend.agents.researcher import ResearchAgent
 
 class BuildLoop:
     def __init__(self):
         self.running = False
         self.iteration = 0
+        self.researcher = ResearchAgent()
 
     async def run_approach(self, approach_description, iteration):
         print(f"Build iteration {iteration} started for approach: {approach_description}")
+
+        # Call researcher before build
+        research_results = self.researcher.research_before_build(approach_description)
+        print(f"Research results for approach {iteration}: {research_results}")
 
         # 1. Build the feature
         build_result = await orchestrator.run(f"Build the following feature: {approach_description}", depth=0)
