@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(git -C \"D:/Git/Auto\" show HEAD:backend/agents/flyio_agent.py)",
-      "Bash(git -C \"D:/Git/Auto\" show HEAD:backend/agents/react_native_app.py)"
+      "Bash(git -C \"D:/Git/Auto\" show HEAD:backend/agents/react_native_app.py)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAuto: test suite alignment, toolsmith update, validation pass\n\n- Aligned all test files to async APIs \\(IsolatedAsyncioTestCase\\)\n- Fixed method names and signatures across test suite\n- Updated toolsmith to single requirement param with type checking\n- State and approval updates from validation run\nEOF\n\\)\")",
+      "Bash(git push:*)"
     ]
   }
 }
